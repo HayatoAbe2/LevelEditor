@@ -1,4 +1,5 @@
 import bpy
+import math
 
 bl_info = {
     "name": "レベルエディタ",
@@ -27,6 +28,7 @@ class TOPBAR_MT_my_menu(bpy.types.Menu):
         self.layout.operator("wm.url_open_preset", text= "Manual", icon= 'HELP')
         self.layout.operator(MYADDON_OT_stretch_vertex.bl_idname, text=MYADDON_OT_stretch_vertex.bl_label) 
         self.layout.operator(MYADDON_OT_create_ico_sphere.bl_idname, text=MYADDON_OT_create_ico_sphere.bl_label) 
+        self.layout.operator(MYADDON_OT_export_scene.bl_idname, text=MYADDON_OT_export_scene.bl_label)
 
     # 既存のメニューにサブメニューを追加
     def subMenu(self, context):
@@ -40,7 +42,7 @@ class MYADDON_OT_stretch_vertex(bpy.types.Operator):
     bl_description = "頂点座標を引っ張って伸ばす"
     bl_options = {'REGISTER', 'UNDO'} # redo,undo可能オプション
 
-    # 実行時呼ばれる
+    # 実行時
     def execute(self, context):
         bpy.data.objects["Cube"].data.vertices[0].co.x += 1.0
         print("頂点を伸ばしました。")
@@ -53,16 +55,53 @@ class MYADDON_OT_create_ico_sphere(bpy.types.Operator):
     bl_description = "ICO球を生成"
     bl_options = {'REGISTER', 'UNDO'}
 
-    # 実行時呼ばれる
+    # 実行時
     def execute(self, context):
         bpy.ops.mesh.primitive_ico_sphere_add()
         print("ICO球を生成しました。")
+        return {'FINISHED'}
+    
+# オペレータ(シーン出力)
+class MYADDON_OT_export_scene(bpy.types.Operator):
+    bl_idname = "myaddon.myaddon_ot_export_scene"
+    bl_label = "シーン出力"
+    bl_description = "シーン情報をExport"
+
+    # 実行時
+    def execute(self, context):
+        print("シーン情報をExportします。")
+
+        #シーン内の全オブジェクト
+        for object in bpy.context.scene.objects:
+            print(object.type + " - " + object.name)
+            #トランスフォームを抽出
+            trans, rot, scale = object.matrix_local.decompose()
+            #オイラー回転に変換
+            rot = rot.to_euler()
+            #度数法に変換
+            rot.x = math.degrees(rot.x)
+            rot.y = math.degrees(rot.y)
+            rot.z = math.degrees(rot.z)
+            #表示
+            print("Trans(%f,%f,%f)" % (trans.x, trans.y, trans.z))
+            print("Rot  (%f,%f,%f)" % (rot.x, rot.y, rot.z))
+            print("Scale(%f,%f,%f)" % (scale.x, scale.y, scale.z))
+
+            #親オブジェクトの名前(あれば)
+            if object.parent:
+                print("Parnt:" + object.parent.name)
+            print()
+
+        print("シーン情報をExportしました。")
+        self.report({'INFO'}, "シーン情報をExportしました。")
+
         return {'FINISHED'}
 
 # Blenderに登録するクラスリスト
 classes = (
     MYADDON_OT_stretch_vertex,
     MYADDON_OT_create_ico_sphere,
+    MYADDON_OT_export_scene,
     TOPBAR_MT_my_menu,
 )
 
