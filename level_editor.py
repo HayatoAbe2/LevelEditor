@@ -4,7 +4,7 @@ import math
 import gpu
 import gpu_extras.batch
 import copy
-
+import mathutils
 
 bl_info = {
     "name": "レベルエディタ",
@@ -137,7 +137,15 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
         # カスタムプロパティ
         if "file_name" in object:
             self.write_and_print(file, indent + "N %s" % object["file_name"])
-
+        if "collider" in object:
+            self.write_and_print(file, indent + "C %s" % object["collider"])
+            temp_str = indent + "CC %f %f %f"
+            temp_str %= (object["collider_center"][0],object["collider_center"][1],object["collider_center"][2])
+            self.write_and_print(file, temp_str)
+            temp_str = indent + "CS %f %f %f"
+            temp_str %= (object["collider_size"][0],object["collider_size"][1],object["collider_size"][2])
+            self.write_and_print(file, temp_str)
+            
         self.write_and_print(file, indent + 'END')
         self.write_and_print(file, '')
 
@@ -205,17 +213,33 @@ class DrawCollider:
 
         # シーンのオブジェクト
         for object in bpy.context.scene.objects:
+            # コライダープロパティがなければスキップ
+            if not "collider" in object:
+                continue
+
+            center = mathutils.Vector((0,0,0))
+            size = mathutils.Vector((2,2,2))
+            
+            center[0]=object["collider_center"][0]
+            center[1]=object["collider_center"][1]
+            center[2]=object["collider_center"][2]
+            size[0]=object["collider_size"][0]
+            size[1]=object["collider_size"][1]
+            size[2]=object["collider_size"][2]
+
             # 追加前の頂点登録数
             start = len(vertices["pos"])
 
             # 各頂点
             for offset in offsets:
                 # 中心座標をコピー
-                pos = copy.copy(object.location)
+                pos = copy.copy(center)
                 pos[0]+=offset[0]*size[0]
                 pos[1]+=offset[1]*size[1]
                 pos[2]+=offset[2]*size[2]
-                
+                # ワールド座標に変換
+                pos = object.matrix.world @ pos
+
                 # 頂点データリストに追加
                 vertices['pos'].append(pos)
 
@@ -250,6 +274,38 @@ class DrawCollider:
         # 描画
         batch.draw(shader)
 
+class MYADDON_OT_add_collider(bpy.types.Operator)]
+    bl_idname = "myaddon.myaddon_ot_add_collider"
+    bl_label = "コライダー追加"
+    bl_description = "['collider']カスタムプロパティを追加します"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def executer(self, context):
+        context.object["collider"] = "BOX"
+        context.object["collider_center"] = mathutils.Vector((0,0,0))
+        context.object["collider_size"] = mathutils.Vector((2,2,2))
+
+        return {"FINISHED"}
+    
+    class OBJECT_PT_collider(bpy.types.Panel):
+        bl_idname = "OBJECT_PT_collider"
+        bl_label = "Collider"
+        bl_space_type = "PROPERTIES"
+        bl_region_type = "WINDOW"
+        bl_context = "object"
+
+        # サブメニュー
+        def draw(self, context):
+            if "collider" in context.object:
+                self.layout.prop(context.object, '["collider"]', text="Type")
+                self.layout.prop(context.object, '["collider_center"]', text="Center")
+                self.layout.prop(context.object, '["collider_size"]', text="Size")
+            else:
+                # なければ追加ボタン
+                self.layout.operator(MYADDON_OT_add_collider.bl_idname)
+                
+
+
 # Blenderに登録するクラスリスト
 classes = (
     MYADDON_OT_stretch_vertex,
@@ -258,6 +314,7 @@ classes = (
     TOPBAR_MT_my_menu,
     MYADDON_OT_add_filename,
     OBJECT_PT_file_name,
+    MYADDON_OT_add_collider,
 )
 
 
@@ -271,6 +328,7 @@ def register():
     bpy.types.TOPBAR_MT_editor_menus.append(TOPBAR_MT_my_menu.subMenu)
     # 3Dビューに描画関数を追加
     DrawCollider.handle = bpy.types.SpaceView3D.draw_handler_add(DrawCollider.draw_collider, (),"WINDOW","POST_VIEW")
+
     
     print("レベルエディタ:有効")
 
