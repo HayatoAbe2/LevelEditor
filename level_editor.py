@@ -145,7 +145,7 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
             temp_str = indent + "CS %f %f %f"
             temp_str %= (object["collider_size"][0],object["collider_size"][1],object["collider_size"][2])
             self.write_and_print(file, temp_str)
-            
+
         self.write_and_print(file, indent + 'END')
         self.write_and_print(file, '')
 
@@ -238,27 +238,27 @@ class DrawCollider:
                 pos[1]+=offset[1]*size[1]
                 pos[2]+=offset[2]*size[2]
                 # ワールド座標に変換
-                pos = object.matrix.world @ pos
+                pos = object.matrix_world @ pos
 
                 # 頂点データリストに追加
                 vertices['pos'].append(pos)
 
-                # インデックスデータ追加
-                # 前
-                indices.append([start+0, start+1])
-                indices.append([start+2, start+3])
-                indices.append([start+0, start+2])
-                indices.append([start+1, start+3])
-                # 奥
-                indices.append([start+4, start+5])
-                indices.append([start+6, start+7])
-                indices.append([start+4, start+6])
-                indices.append([start+5, start+7])
-                # 横
-                indices.append([start+0, start+4])
-                indices.append([start+1, start+5])
-                indices.append([start+2, start+6])
-                indices.append([start+3, start+7])
+            # インデックスデータ追加
+            # 前
+            indices.append([start+0, start+1])
+            indices.append([start+2, start+3])
+            indices.append([start+0, start+2])
+            indices.append([start+1, start+3])
+            # 奥
+            indices.append([start+4, start+5])
+            indices.append([start+6, start+7])
+            indices.append([start+4, start+6])
+            indices.append([start+5, start+7])
+            # 横
+            indices.append([start+0, start+4])
+            indices.append([start+1, start+5])
+            indices.append([start+2, start+6])
+            indices.append([start+3, start+7])
 
         # シェーダ
         shader = gpu.shader.from_builtin("UNIFORM_COLOR")
@@ -274,35 +274,35 @@ class DrawCollider:
         # 描画
         batch.draw(shader)
 
-class MYADDON_OT_add_collider(bpy.types.Operator)]
+class MYADDON_OT_add_collider(bpy.types.Operator):
     bl_idname = "myaddon.myaddon_ot_add_collider"
     bl_label = "コライダー追加"
     bl_description = "['collider']カスタムプロパティを追加します"
     bl_options = {"REGISTER", "UNDO"}
 
-    def executer(self, context):
+    def execute(self, context):
         context.object["collider"] = "BOX"
         context.object["collider_center"] = mathutils.Vector((0,0,0))
         context.object["collider_size"] = mathutils.Vector((2,2,2))
 
         return {"FINISHED"}
     
-    class OBJECT_PT_collider(bpy.types.Panel):
-        bl_idname = "OBJECT_PT_collider"
-        bl_label = "Collider"
-        bl_space_type = "PROPERTIES"
-        bl_region_type = "WINDOW"
-        bl_context = "object"
+class OBJECT_PT_collider(bpy.types.Panel):
+    bl_idname = "OBJECT_PT_collider"
+    bl_label = "Collider"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "object"
 
-        # サブメニュー
-        def draw(self, context):
-            if "collider" in context.object:
-                self.layout.prop(context.object, '["collider"]', text="Type")
-                self.layout.prop(context.object, '["collider_center"]', text="Center")
-                self.layout.prop(context.object, '["collider_size"]', text="Size")
-            else:
-                # なければ追加ボタン
-                self.layout.operator(MYADDON_OT_add_collider.bl_idname)
+    # サブメニュー
+    def draw(self, context):
+        if "collider" in context.object:
+            self.layout.prop(context.object, '["collider"]', text="Type")
+            self.layout.prop(context.object, '["collider_center"]', text="Center")
+            self.layout.prop(context.object, '["collider_size"]', text="Size")
+        else:
+            # なければ追加ボタン
+            self.layout.operator(MYADDON_OT_add_collider.bl_idname)
                 
 
 
@@ -315,6 +315,7 @@ classes = (
     MYADDON_OT_add_filename,
     OBJECT_PT_file_name,
     MYADDON_OT_add_collider,
+    OBJECT_PT_collider,
 )
 
 
@@ -328,7 +329,6 @@ def register():
     bpy.types.TOPBAR_MT_editor_menus.append(TOPBAR_MT_my_menu.subMenu)
     # 3Dビューに描画関数を追加
     DrawCollider.handle = bpy.types.SpaceView3D.draw_handler_add(DrawCollider.draw_collider, (),"WINDOW","POST_VIEW")
-
     
     print("レベルエディタ:有効")
 
