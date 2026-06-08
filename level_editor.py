@@ -5,6 +5,7 @@ import gpu
 import gpu_extras.batch
 import copy
 import mathutils
+import json
 
 bl_info = {
     "name": "レベルエディタ",
@@ -72,14 +73,14 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
     bl_idname = "myaddon.myaddon_ot_export_scene"
     bl_label = "シーン出力"
     bl_description = "シーン情報をExport"
-    filename_ext = ".scene" # 出力ファイル拡張子
+    filename_ext = ".json" # 出力ファイル拡張子
 
     # 実行時
     def execute(self, context):
         print("シーン情報をExportします。")
 
         # 出力
-        self.export()
+        self.export_json()
 
         print("シーン情報をExportしました。")
         self.report({'INFO'}, "シーン情報をExportしました。")
@@ -152,6 +153,82 @@ class MYADDON_OT_export_scene(bpy.types.Operator, bpy_extras.io_utils.ExportHelp
         # 子ノードの処理
         for child in object.children:
             self.parse_scene_recursive(file, child, level + 1)
+
+    # シーン出力(json)
+    def export_json(self):
+        """JSON出力"""
+
+        # 情報をまとめるdict
+        json_object_root = dict()
+
+        # ノード名
+        json_object_root["name"] = "scene"
+        # オブジェクトリスト
+        json_object_root["objects"] = list()
+
+        # シーン内オブジェクト
+        for object in bpy.context.scene.objects:
+            # 親があるものはスキップ
+            if(object.parent):
+                continue
+
+            # 再帰関数
+            self.parse_scene_recursive_json(json_object_root["objects"], object, 0)
+
+        # エンコード
+        json_text = json.dumps(json_object_root, ensure_ascii=False, cls=json.JSONEncoder, indent=4)
+        print(json_text)
+
+        # ファイルオープン
+        with open(self.filepath, "wt", encoding="utf-8") as file:
+            # 書き込み
+            file.write(json_text)
+
+    def parse_scene_recursive_json(self, data_parent, object, level):
+        # オブジェクト一個分
+        json_object = dict()
+        json_object["type"] = object.type
+        json_object["name"] = object.name
+
+        # トランスフォーム情報
+        trans, rot, scale = object.matrix_local.decompose()
+        # オイラー回転に変換
+        rot = rot.to_euler()
+        # 度数法に変換
+        rot.x = math.degrees(rot.x)
+        rot.y = math.degrees(rot.y)
+        rot.z = math.degrees(rot.z)
+        # dictに登録
+        transform = dict()
+        transform["translation"] = (trans.x, trans.y, trans.z)
+        transform["rotation"] = (rot.x, rot.y, rot.z)
+        transform["scaling"] = (scale.x, scale.y, scale.z)
+        # jsonオブジェクトに登録
+        json_object["transform"] = transform
+
+        # カスタムプロパティ
+        # file_name
+        if "file_name" in object:
+            json_object["file_name"] = object["file_name"]
+        # collider
+        if "collider" in object:
+            collider = dict()
+            collider["type"] = object["collider"]
+            collider["center"] = object["collider_center"].to_list()
+            collider["size"] = object["collider_size"].to_list()
+            json_object["collider"] = collider
+
+        # 親オブジェクトに一個分登録
+        data_parent.append(json_object)
+
+        # 子ノードがあるなら
+        if len(object.children) > 0:
+            # 子リスト
+            json_object["children"] = list()
+
+            # 子ノードで再帰
+            for child in object.children:
+                self.parse_scene_recursive_json(json_object["children"], child, level + 1)
 
 # パネル ファイル名
 class OBJECT_PT_file_name(bpy.types.Panel):
